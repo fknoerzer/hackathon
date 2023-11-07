@@ -1,5 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd"></mule>
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="e2cc62de-50b6-45e4-b719-1374341d2f15">
+		<http:request-connection host="address-rest-service.us-e2.cloudhub.io/api" port="81"/>
+		<http:default-headers />
+	</http:request-config>
+	<flow name="getAccount" doc:id="8aec95ad-09ff-4280-b207-d543c27b9f19" >
+		<set-variable value="#[false]" doc:name="switchToCloud_ON" doc:id="d77db58f-c748-4c0d-a9c2-794f1d3eec72" variableName="switchToCloud_ON"/>
+		<choice doc:name="Choice" doc:id="f20606c5-9f6f-404d-a57b-39890f3d27a6" >
+			<when expression="#[vars.switchToCloud_ON == true]">
+				<logger level="INFO" doc:name="Logger" doc:id="1d829b5a-19ec-4147-a309-25439c4ec974" message="in to Cloud"/>
+			</when>
+			<otherwise >
+				<http:request method="GET" doc:name="Request" doc:id="efac8bef-b939-4e6a-b69d-f128f6c237eb" config-ref="HTTP_Request_configuration" path="/address">
+					<http:query-params ><![CDATA[#[output application/java
+---
+{
+	firstName : attributes.queryParams.firstName,
+	lastName : attributes.queryParams.lastName
+}]]]></http:query-params>
+				</http:request>
+				<logger level="INFO" doc:name="Logger" doc:id="a146e8e5-1c7d-4a9c-b76b-e3ed27aa1dc5" message="in to mainframe"/>
+			</otherwise>
+		</choice>
+	</flow>
+</mule>
