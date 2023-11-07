@@ -1,0 +1,21 @@
+%dw 2.0
+
+type auto_8aec95ad_09ff_4280_b207_d543c27b9f19_Output_Payload = {
+  firstName: String, 
+  lastName: String, 
+  website: String, 
+  address: {
+    zipCode: String, 
+    city: String, 
+    street: String, 
+    _?: Any
+  }, 
+  hobbies: Array<String>, 
+  registrationDate: String, 
+  birthDate: String, 
+  age: Number, 
+  isStudent: Boolean, 
+  email: String, 
+  _?: Any
+}
+
