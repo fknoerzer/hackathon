@@ -1,0 +1,18 @@
+{
+  "firstName": "Keane",
+  "lastName": "Bohey",
+  "age": 43,
+  "isStudent": true,
+  "hobbies": [
+    "Lockpicking"
+  ],
+  "address": {
+    "street": "street1",
+    "city": "Stadt",
+    "zipCode": "12345"
+  },
+  "birthDate": "04.11.2023",
+  "registrationDate": "05.06.2024 14:46",
+  "email": "znind19@123-reg.co.uk",
+  "website": "https://www.ameblo.jp"
+}

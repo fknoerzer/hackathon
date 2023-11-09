@@ -1,20 +1,51 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:vm="http://www.mulesoft.org/schema/mule/vm" xmlns:http="http://www.mulesoft.org/schema/mule/http"
-	xmlns="http://www.mulesoft.org/schema/mule/core"
-	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:vm="http://www.mulesoft.org/schema/mule/vm"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
 http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
-http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/current/mule-vm.xsd">
+http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/current/mule-vm.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
 	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="e2cc62de-50b6-45e4-b719-1374341d2f15" basePath="/api">
 		<http:request-connection host="address-rest-service.us-e2.cloudhub.io"/>
 		<http:default-headers />
 	</http:request-config>
+	<vm:config name="VM_Config" doc:name="VM Config" doc:id="6f128617-ed43-42a8-91f2-5552cace3dba" >
+		<vm:queues >
+			<vm:queue queueName="replay" />
+		</vm:queues>
+	</vm:config>
+	<http:request-config name="HTTP_Request_configuration_replayer" doc:name="HTTP Request configuration" doc:id="9315dc3d-3fbb-4006-a7eb-4b04a1896d1e" >
+		<http:request-connection host="papi-replayer-api-team1.us-e2.cloudhub.io" />
+	</http:request-config>
+	<flow name="replayFlow" doc:id="291ed627-33fc-45ec-91c6-199a07d94d96" >
+		<vm:listener doc:name="Listener" doc:id="eeaff61b-540c-43c8-b8fa-3dbdae23037e" config-ref="VM_Config" queueName="replay"/>
+		<set-variable value="#[true]" doc:name="Set Replay On" doc:id="ba057157-b799-4dbe-8b77-dfe7868657fc" variableName="replay_ON" />
+		<logger level="INFO" doc:name="Logger" doc:id="ee188e79-7661-44ec-9ce5-189d140a71ef" message="Payload before replay on: #[payload]" />
+		<choice doc:name="Choice" doc:id="8d7eb21c-6bfa-4e04-b106-50cefe1810f6">
+			<when expression="#[vars.replay_ON == true]">
+				<http:request method="POST" doc:name="Request" doc:id="b580c652-be98-4786-99b5-585bf6f4a29f" config-ref="HTTP_Request_configuration_replayer" path="/replay">
+					<http:query-params ><![CDATA[#[output application/java
+---
+{
+	firstName : payload.qpFirstName,
+	lastName : payload.qpLastName,
+	switchToCloud : payload.qpSwitchToCloud
+}]]]></http:query-params>
+				</http:request>
+				<logger level="INFO" doc:name="Logger" doc:id="2b6c058c-68a3-4c47-b674-dba5e0af7fcc" message="Replay on: #[payload]"/>
+			</when>
+			<otherwise>
+				<logger level="INFO" doc:name="Logger" doc:id="c0485222-6c2a-4d81-b3fc-e69dee12ae60" message="replay off"/>
+			</otherwise>
+		</choice>
+	</flow>
 	<flow name="getAccount" doc:id="8aec95ad-09ff-4280-b207-d543c27b9f19" >
 		<set-variable value="#[attributes.queryParams.firstName]" doc:name="SetFirstName" doc:id="ee93cfcc-39bb-4afe-8e2e-39d706c7a9a6" variableName="firstName"/>
 		<set-variable value="#[attributes.queryParams.lastName]" doc:name="SetLastName" doc:id="25b1f44b-55bc-4856-b38c-3fb3d16efc9b" variableName="lastName"/>
-		<set-variable value="#[false]" doc:name="switchToCloud_ON" doc:id="d77db58f-c748-4c0d-a9c2-794f1d3eec72" variableName="switchToCloud_ON"/>
+		<set-variable value="#[false]" doc:name="switchToCloud" doc:id="d77db58f-c748-4c0d-a9c2-794f1d3eec72" variableName="switchToCloud"/>
 		<choice doc:name="Choice" doc:id="f20606c5-9f6f-404d-a57b-39890f3d27a6" >
-			<when expression="#[vars.switchToCloud_ON == true]">
+			<when expression="#[vars.switchToCloud == true]">
 				<http:request method="GET" doc:name="Cloud_Request" doc:id="c8043049-d587-4b2c-b971-b9812fef8ba6" config-ref="HTTP_Request_configuration" path="/address">
 					<http:query-params ><![CDATA[#[output application/java
 ---
@@ -23,7 +54,6 @@ http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/cu
 	lastName : vars.lastName
 }]]]></http:query-params>
 				</http:request>
-				<logger level="INFO" doc:name="Logger" doc:id="1d829b5a-19ec-4147-a309-25439c4ec974" message="in to Cloud"/>
 			</when>
 			<otherwise >
 				<http:request method="GET" doc:name="Mainframe_Request" doc:id="efac8bef-b939-4e6a-b69d-f128f6c237eb" config-ref="HTTP_Request_configuration" path="/real_address">
@@ -34,18 +64,29 @@ http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/cu
 	lastName : vars.lastName
 }]]]></http:query-params>
 				</http:request>
-				<logger level="INFO" doc:name="Logger" doc:id="a146e8e5-1c7d-4a9c-b76b-e3ed27aa1dc5" message="in to mainframe"/>
 			</otherwise>
 		</choice>
-		<set-variable value="#[true]" doc:name="Set Replay On" doc:id="ba057157-b799-4dbe-8b77-dfe7868657fc" variableName="replay_ON" />
-		<logger level="INFO" doc:name="Logger" doc:id="ee188e79-7661-44ec-9ce5-189d140a71ef" message="Payload: #[payload], FirstName: #[vars.firstName], LastName: #[vars.lastName]"/>
-		<choice doc:name="Choice" doc:id="8d7eb21c-6bfa-4e04-b106-50cefe1810f6">
-			<when expression="#[vars.replay_ON == true]">
-				<logger level="INFO" doc:name="Logger" doc:id="2b6c058c-68a3-4c47-b674-dba5e0af7fcc" />
-			</when>
-			<otherwise>
-				<logger level="INFO" doc:name="Logger" doc:id="c0485222-6c2a-4d81-b3fc-e69dee12ae60" />
-			</otherwise>
-		</choice>
+		<vm:publish doc:name="Publish" doc:id="6bd57120-72c4-4c6d-a8e7-701463300bb6" config-ref="VM_Config" queueName="replay" timeout="30">
+			<vm:content ><![CDATA[#[%dw 2.0
+output application/json
+
+---
+{
+  "firstName": payload.firstName,
+  "lastName": payload.lastName,
+  "age": payload.age,
+  "isStudent": payload.isStudent,
+  "hobbies": payload.hobbies,
+  "address": payload.address,
+  "birthDate": payload.birthDate,
+  "registrationDate": payload.registrationDate,
+  "email": payload.email,
+  "website": payload.website,
+  "qpFirstName": vars.firstName,
+  "qpLastName": vars.lastName,
+  "qpSwitchToCloud": vars.switchToCloud
+}]]]></vm:content>
+		</vm:publish>
+		<logger level="INFO" doc:name="Logger" doc:id="37766dcf-c8f1-4d74-b304-1bba8e184535" message="after vm publish"/>
 	</flow>
 </mule>
