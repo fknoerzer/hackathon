@@ -18,12 +18,15 @@ http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/
 	<http:request-config name="HTTP_Request_configuration_replayer" doc:name="HTTP Request configuration" doc:id="9315dc3d-3fbb-4006-a7eb-4b04a1896d1e" >
 		<http:request-connection host="papi-replayer-api-team1.us-e2.cloudhub.io" />
 	</http:request-config>
+	<sub-flow name="setVariables" doc:id="2bf906dd-6d40-490b-ab30-939cae552698" >
+		<set-variable value="#[attributes.queryParams.firstName]" doc:name="SetFirstName" doc:id="ee93cfcc-39bb-4afe-8e2e-39d706c7a9a6" variableName="firstName" />
+		<set-variable value="#[attributes.queryParams.lastName]" doc:name="SetLastName" doc:id="25b1f44b-55bc-4856-b38c-3fb3d16efc9b" variableName="lastName" />
+	</sub-flow>
 	<flow name="replayFlow" doc:id="291ed627-33fc-45ec-91c6-199a07d94d96" >
 		<vm:listener doc:name="Listener" doc:id="eeaff61b-540c-43c8-b8fa-3dbdae23037e" config-ref="VM_Config" queueName="replay"/>
-		<set-variable value="#[true]" doc:name="Set Replay On" doc:id="ba057157-b799-4dbe-8b77-dfe7868657fc" variableName="replay_ON" />
 		<logger level="INFO" doc:name="Logger" doc:id="ee188e79-7661-44ec-9ce5-189d140a71ef" message="Payload before replay on: #[payload]" />
 		<choice doc:name="Choice" doc:id="8d7eb21c-6bfa-4e04-b106-50cefe1810f6">
-			<when expression="#[vars.replay_ON == true]">
+			<when expression="#[(p('replay_On') as Boolean) == true]">
 				<http:request method="POST" doc:name="Request" doc:id="b580c652-be98-4786-99b5-585bf6f4a29f" config-ref="HTTP_Request_configuration_replayer" path="/replay">
 					<http:query-params ><![CDATA[#[output application/java
 ---
@@ -41,11 +44,9 @@ http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/
 		</choice>
 	</flow>
 	<flow name="getAccount" doc:id="8aec95ad-09ff-4280-b207-d543c27b9f19" >
-		<set-variable value="#[attributes.queryParams.firstName]" doc:name="SetFirstName" doc:id="ee93cfcc-39bb-4afe-8e2e-39d706c7a9a6" variableName="firstName"/>
-		<set-variable value="#[attributes.queryParams.lastName]" doc:name="SetLastName" doc:id="25b1f44b-55bc-4856-b38c-3fb3d16efc9b" variableName="lastName"/>
-		<set-variable value="#[false]" doc:name="switchToCloud" doc:id="d77db58f-c748-4c0d-a9c2-794f1d3eec72" variableName="switchToCloud"/>
+		<flow-ref doc:name="Flow Reference" doc:id="8c78f51a-72f0-48d9-a2a2-b6c20e69297d" name="setVariables" />
 		<choice doc:name="Choice" doc:id="f20606c5-9f6f-404d-a57b-39890f3d27a6" >
-			<when expression="#[vars.switchToCloud == true]">
+			<when expression="#[(p('switchToCloud') as Boolean) == true]">
 				<http:request method="GET" doc:name="Cloud_Request" doc:id="c8043049-d587-4b2c-b971-b9812fef8ba6" config-ref="HTTP_Request_configuration" path="/address">
 					<http:query-params ><![CDATA[#[output application/java
 ---
@@ -84,7 +85,7 @@ output application/json
   "website": payload.website,
   "qpFirstName": vars.firstName,
   "qpLastName": vars.lastName,
-  "qpSwitchToCloud": vars.switchToCloud
+  "qpSwitchToCloud": p('switchToCloud')
 }]]]></vm:content>
 		</vm:publish>
 		<logger level="INFO" doc:name="Logger" doc:id="37766dcf-c8f1-4d74-b304-1bba8e184535" message="after vm publish"/>
