@@ -15,8 +15,8 @@ http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/
 			<vm:queue queueName="replay" />
 		</vm:queues>
 	</vm:config>
-	<http:request-config name="HTTP_Request_configuration_replayer" doc:name="HTTP Request configuration" doc:id="9315dc3d-3fbb-4006-a7eb-4b04a1896d1e" >
-		<http:request-connection host="papi-replayer-api-team1.us-e2.cloudhub.io" />
+	<http:request-config name="HTTP_Request_configuration_replayer" doc:name="HTTP Request configuration" doc:id="9315dc3d-3fbb-4006-a7eb-4b04a1896d1e" basePath="/api">
+		<http:request-connection host="papi-replayer-team1.us-e2.cloudhub.io" />
 	</http:request-config>
 	<flow name="getAccount" doc:id="8aec95ad-09ff-4280-b207-d543c27b9f19" >
 		<flow-ref doc:name="Flow Reference" doc:id="8c78f51a-72f0-48d9-a2a2-b6c20e69297d" name="setVariables" />
@@ -46,8 +46,9 @@ http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/
 				<set-variable value="#[now()]" doc:name="msAfterRequest" doc:id="6220c5d1-59ee-4f77-8043-a07e105d020b" variableName="msAfterRequest"/>
 			</otherwise>
 		</choice>
-		<vm:publish doc:name="Publish" doc:id="6bd57120-72c4-4c6d-a8e7-701463300bb6" config-ref="VM_Config" queueName="replay" timeout="30">
-			<vm:content ><![CDATA[#[%dw 2.0
+		<ee:transform doc:name="Transform Message" doc:id="8b38f374-7d67-44c3-a415-9f0482d47cba" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
 output application/json
 var period = (vars.msAfterRequest-vars.msBeforeRequest)
 
@@ -66,30 +67,70 @@ var period = (vars.msAfterRequest-vars.msBeforeRequest)
   "qpFirstName": vars.firstName,
   "qpLastName": vars.lastName,
   "qpSwitchToCloud": p('switchToCloud'),
-  "runtimePrimarySytem": period as Number {unit: "milliseconds"} 
- }]]]></vm:content>
+  "runtimePrimarySystem": period as Number {unit: "milliseconds"} 
+ }]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<vm:publish doc:name="Publish" doc:id="6bd57120-72c4-4c6d-a8e7-701463300bb6" config-ref="VM_Config" queueName="replay" timeout="30">
 		</vm:publish>
-		<logger level="WARN" doc:name="Logger" doc:id="37766dcf-c8f1-4d74-b304-1bba8e184535" message='#[%dw 2.0&#10;var period = (vars.msAfterRequest-vars.msBeforeRequest)&#10;output application/json&#10;&#10;---&#10;&#10;"runtimePrimarySytem": period as Number {unit: "milliseconds"}]'/>
+		<ee:transform doc:name="Transform Message" doc:id="a65be98f-f0e5-40c1-bab8-8c31a96e2fc3" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+  "firstName": payload.firstName,
+  "lastName": payload.lastName,
+  "age": payload.age,
+  "isStudent": payload.isStudent,
+  "hobbies": payload.hobbies,
+  "address": payload.address,
+  "birthDate": payload.birthDate,
+  "registrationDate": payload.registrationDate,
+  "email": payload.email,
+  "website": payload.website
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
 	</flow>
 	<sub-flow name="setVariables" doc:id="2bf906dd-6d40-490b-ab30-939cae552698">
-		<set-variable value="#[attributes.queryParams.firstName]" doc:name="SetFirstName" doc:id="ee93cfcc-39bb-4afe-8e2e-39d706c7a9a6" variableName="firstName" />
-		<set-variable value="#[attributes.queryParams.lastName]" doc:name="SetLastName" doc:id="25b1f44b-55bc-4856-b38c-3fb3d16efc9b" variableName="lastName" />
+		<set-variable value="#[message.attributes.queryParams.firstName]" doc:name="SetFirstName" doc:id="ee93cfcc-39bb-4afe-8e2e-39d706c7a9a6" variableName="firstName" />
+		<set-variable value="#[message.attributes.queryParams.lastName]" doc:name="SetLastName" doc:id="25b1f44b-55bc-4856-b38c-3fb3d16efc9b" variableName="lastName" />
+	</sub-flow>
+	<sub-flow name="setVariablesForReplayerRequest" doc:id="0cc81167-477b-47ba-a883-749c32fd740f">
+		<set-variable value="#[payload.qpFirstName]" doc:name="SetFirstNameFromPayload" doc:id="1a509c71-bf1b-4288-aeda-8774b5e81a65" variableName="qpFirstName"/>
+		<set-variable value="#[payload.qpLastName]" doc:name="SetLastNameFromPayload" doc:id="1be5184f-a247-4a7b-9509-f36f44436710" variableName="qpLastName"/>
+		<set-variable value="#[payload.qpSwitchToCloud as Boolean]" doc:name="SetSwitchToCloudFromPayload" doc:id="4cc381ba-cdab-4997-b86a-748b9677928e" variableName="qpSwitchToCloud"/>
 	</sub-flow>
 	<flow name="replayFlow" doc:id="291ed627-33fc-45ec-91c6-199a07d94d96">
 		<vm:listener doc:name="Listener" doc:id="eeaff61b-540c-43c8-b8fa-3dbdae23037e" config-ref="VM_Config" queueName="replay" />
 		<logger level="INFO" doc:name="Logger" doc:id="ee188e79-7661-44ec-9ce5-189d140a71ef" message="Payload before replay on: #[payload]" />
 		<choice doc:name="Choice" doc:id="8d7eb21c-6bfa-4e04-b106-50cefe1810f6">
 			<when expression="#[(p('replay_On') as Boolean) == true]">
+				<flow-ref doc:name="Flow Reference" doc:id="21b6293f-0dad-4caf-b79b-35051534c840" name="setVariablesForReplayerRequest" />
 				<http:request method="POST" doc:name="Request" doc:id="b580c652-be98-4786-99b5-585bf6f4a29f" config-ref="HTTP_Request_configuration_replayer" path="/replay">
+					<http:body ><![CDATA[#[{
+  "firstName": payload.firstName,
+  "lastName": payload.lastName,
+  "age": payload.age,
+  "isStudent": payload.isStudent,
+  "hobbies": payload.hobbies,
+  "address": payload.address,
+  "birthDate": payload.birthDate,
+  "registrationDate": payload.registrationDate,
+  "email": payload.email,
+  "website": payload.website,
+  "runtimePrimarySystem": payload.runtimePrimarySystem
+ }]]]></http:body>
 					<http:query-params><![CDATA[#[output application/java
 ---
 {
-	firstName : payload.qpFirstName,
-	lastName : payload.qpLastName,
-	switchToCloud : payload.qpSwitchToCloud
+	firstName : vars.qpFirstName,
+	lastName : vars.qpLastName,
+	switchToCloud : vars.qpSwitchToCloud
 }]]]></http:query-params>
 				</http:request>
-				<logger level="INFO" doc:name="Logger" doc:id="2b6c058c-68a3-4c47-b674-dba5e0af7fcc" message="Replay on: #[payload]" />
+				<logger level="INFO" doc:name="Logger" doc:id="54dd672d-7746-4b22-9920-87f64c0ccfa7" message="Payload after replayer:  #[payload]" />
 			</when>
 			<otherwise>
 				<logger level="INFO" doc:name="Logger" doc:id="c0485222-6c2a-4d81-b3fc-e69dee12ae60" message="replay off" />
